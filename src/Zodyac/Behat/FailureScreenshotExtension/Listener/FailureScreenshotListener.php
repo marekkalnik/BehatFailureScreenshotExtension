@@ -80,8 +80,12 @@ class FailureScreenshotListener implements EventSubscriberInterface
         $screenshotFile = $this->getScreenshotPath($event->getStep());
         $this->ensureDirectoryExists($screenshotFile);
 
-        // Save the screenshot
-        file_put_contents($screenshotFile, $event->getContext()->getSession()->getScreenshot());
+        try {
+            // Save the screenshot
+            file_put_contents($screenshotFile, $event->getContext()->getSession()->getScreenshot());
+        } catch(\Behat\Mink\Exception\UnsupportedDriverActionException $e) {
+            // if the driver is unable to take a screenshot, well...to bad
+        }
     }
 
     /**
