@@ -5,6 +5,7 @@ namespace Zodyac\Behat\FailureScreenshotExtension\Listener;
 use Behat\Behat\Event\ScenarioEvent;
 use Behat\Behat\Event\StepEvent;
 use Behat\Gherkin\Node\StepNode;
+use Behat\Mink\Exception\UnsupportedDriverActionException;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Zodyac\Behat\PerceptualDiffExtension\Exception\PerceptualDiffException;
 
@@ -77,11 +78,20 @@ class FailureScreenshotListener implements EventSubscriberInterface
             return;
         }
 
-        $screenshotFile = $this->getScreenshotPath($event->getStep());
-        $this->ensureDirectoryExists($screenshotFile);
-
         // Save the screenshot
-        file_put_contents($screenshotFile, $event->getContext()->getSession()->getScreenshot());
+        try {
+            $screenshot = $event->getContext()->getSession()->getScreenshot();
+
+            $file = $this->getFilePath($event->getStep(), 'png');
+            $this->ensureDirectoryExists($file);
+            file_put_contents($file, $screenshot);
+        } catch (\Behat\Mink\Exception\UnsupportedDriverActionException $e) {
+            $content = $event->getContext()->getSession()->getPage()->getContent();
+
+            $file = $this->getFilePath($event->getStep(), 'html');
+            $this->ensureDirectoryExists($file);
+            file_put_contents($file, $content);
+        }
     }
 
     /**
@@ -106,9 +116,9 @@ class FailureScreenshotListener implements EventSubscriberInterface
      *
      * @return string
      */
-    public function getScreenshotPath(StepNode $step)
+    public function getFilePath(StepNode $step, $extension = 'png')
     {
-        return $this->path . $this->started->format('YmdHis') . '/' . $this->getFilename($step);
+        return $this->path . $this->started->format('YmdHis') . '/' . $this->getFilename($step, $extension);
     }
 
     /**
@@ -117,9 +127,9 @@ class FailureScreenshotListener implements EventSubscriberInterface
      * @param StepNode $step
      * @return string
      */
-    protected function getFilename(StepNode $step)
+    protected function getFilename(StepNode $step, $extension = 'png')
     {
-        return sprintf('%s/%s/%d-%s.png',
+        return sprintf('%s/%s/%d-%s.' . $extension,
             $this->formatString($this->currentScenario->getFeature()->getTitle()),
             $this->formatString($this->currentScenario->getTitle()),
             $this->stepNumber,
